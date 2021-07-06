@@ -27,7 +27,8 @@
 
 #define DMA2D_RTOM (0U)
 #define DMA2D_MTOM (1U)
-#define DMA2D_MODE (DMA2D_MTOM)
+#define DMA2D_BLENDING (2U)
+#define DMA2D_MODE (DMA2D_BLENDING)
 #define TILE_COUNT_ROW (5U)
 #define TILE_WIDTH_PIXEL (95U)
 
@@ -118,8 +119,39 @@ static void DMA2D_DisplayFrameAt(uint16_t index) {
     pStart += (index % TILE_COUNT_ROW) * TILE_WIDTH_PIXEL;
     uint32_t offlineSrc = (TILE_COUNT_ROW - 1) * TILE_WIDTH_PIXEL;
     uint32_t offlineDist = 0;
-    
+
     DMA2D_MemCopy(0x2, (void*)pStart, pDist, TILE_WIDTH_PIXEL, TILE_WIDTH_PIXEL, offlineSrc, offlineDist);
+}
+#elif (DMA2D_MODE == DMA2D_BLENDING)
+void DMA2D_MixColors(void* pFg, void* pBg, void* pDst,
+                      uint32_t offlineFg, uint32_t offlineBg, uint32_t offlineDist,
+                      uint16_t xSize, uint16_t ySize,
+                      uint32_t pixelFormat, uint8_t opa) {
+    DMA2D->CR = 0x00020000UL;  // 设置工作模式为存储器到存储器并带颜色混合
+
+    DMA2D->FGMAR = (uint32_t)pFg;  // 设置前景数据内存地址
+    DMA2D->BGMAR = (uint32_t)pBg;  // 设置背景数据内存地址
+    DMA2D->OMAR = (uint32_t)pDst;  // 设置数据输出内存地址
+
+    DMA2D->FGOR = offlineFg;   // 设置前景数据传输偏移
+    DMA2D->BGOR = offlineBg;   // 设置背景数据传输偏移
+    DMA2D->OOR = offlineDist;  // 设置数据输出传输偏移
+
+    DMA2D->NLR = (uint32_t)(xSize << 16) | (uint16_t)ySize;  // 设置图像数据宽高（像素）
+
+    DMA2D->FGPFCCR = pixelFormat               // 设置前景色颜色格式
+                     | (1UL << 16)             // 忽略前景颜色数据中的Alpha通道
+                     | ((uint32_t)opa << 24);  // 设置前景色不透明度
+
+    DMA2D->BGPFCCR = pixelFormat;  // 设置背景颜色格式
+    DMA2D->OPFCCR = pixelFormat;   // 设置输出颜色格式
+
+    /* 启动传输 */
+    DMA2D->CR |= DMA2D_CR_START;
+
+    /* 等待DMA2D传输完成 */
+    while (DMA2D->CR & DMA2D_CR_START) {
+    }
 }
 #endif
 
@@ -186,16 +218,26 @@ int main(void) {
         // 绘制X轴
         FillRect(40, 200, 240, 1, 0x0000);
         LCD_update_framebuffer(0, 0, 320, 240, framebuffer);
-        
-        while(1);
-#else
-    while (1) {
-        for (int i = 0; i < 25; i++) {
-            DMA2D_DisplayFrameAt(i);
-            delay_ms(100);
-            LCD_update_framebuffer(0, 0, 95, 95, framebuffer);
+
+        while (1)
+            ;
+#elif (DMA2D_MODE == DMA2D_MTOM)
+        while (1) {
+            for (int i = 0; i < 25; i++) {
+                DMA2D_DisplayFrameAt(i);
+                delay_ms(100);
+                LCD_update_framebuffer(0, 0, 95, 95, framebuffer);
+            }
         }
-    }
+#elif (DMA2D_MODE == DMA2D_BLENDING)
+        while (1) {
+            for (uint8_t i = 0; i < 255; i++) {
+                /* code */
+                DMA2D_MixColors((void *)cat, (void *)fox, framebuffer, 0, 0, 0, 240, 190, 0x2, i);
+                LCD_update_framebuffer(0, 0, 240, 190, framebuffer);
+                delay_ms(10);
+            }
+        }
 #endif
 
         /* USER CODE BEGIN 3 */
