@@ -1,0 +1,2 @@
+# STM32_ATOM_DMA2D
+基于正点原子制作的STM32F429的demo板实现的DMA2D模块测试代码
