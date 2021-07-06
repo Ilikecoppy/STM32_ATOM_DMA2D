@@ -116,7 +116,7 @@ static void DMA2D_DisplayFrameAt(uint16_t index) {
     void* pDist = (uint16_t*)framebuffer;
     pStart += (index / TILE_COUNT_ROW) * (TILE_WIDTH_PIXEL * TILE_WIDTH_PIXEL * TILE_COUNT_ROW);
     pStart += (index % TILE_COUNT_ROW) * TILE_WIDTH_PIXEL;
-    uint32_t offlineSrc = 382;
+    uint32_t offlineSrc = (TILE_COUNT_ROW - 1) * TILE_WIDTH_PIXEL;
     uint32_t offlineDist = 0;
     
     DMA2D_MemCopy(0x2, (void*)pStart, pDist, TILE_WIDTH_PIXEL, TILE_WIDTH_PIXEL, offlineSrc, offlineDist);
